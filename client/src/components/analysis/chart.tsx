@@ -42,7 +42,7 @@ export default function OverallScoreChart({
       label: "Risks",
       color: "hsl(var(--chart-1))",
     },
-    Opportunitiesites: {
+    Opportunities: {
       label: "Opportunities",
       color: "hsl(var(--chart-2))",
     },

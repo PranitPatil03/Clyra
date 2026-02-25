@@ -91,7 +91,7 @@ export const analyzeContract = async (req: Request, res: Response) => {
       contractType,
       ...(analysis as Partial<IContractAnalysis>),
       language: "en",
-      aiModel: "gemini-pro",
+      aiModel: "gemini-2.0-flash",
     });
 
     res.json(savedAnalysis);
@@ -152,5 +152,33 @@ export const getContractByID = async (req: Request, res: Response) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Failed to get contract" });
+  }
+};
+
+export const deleteContract = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const user = req.user as IUser;
+
+  if (!isValidMongoId(id)) {
+    return res.status(400).json({ error: "Invalid contract ID" });
+  }
+
+  try {
+    const contract = await ContractAnalysisSchema.findOneAndDelete({
+      _id: id,
+      userId: user._id,
+    });
+
+    if (!contract) {
+      return res.status(404).json({ error: "Contract not found" });
+    }
+
+    // Remove from cache
+    await redis.del(`contract:${id}`);
+
+    res.json({ message: "Contract deleted successfully" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to delete contract" });
   }
 };

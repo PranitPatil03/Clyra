@@ -164,7 +164,7 @@ export default function ContractAnalysisResults({
 
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>Overal Contract Score</CardTitle>
+          <CardTitle>Overall Contract Score</CardTitle>
           <CardDescription>
             Based on risks and opportunities identified
           </CardDescription>
@@ -192,7 +192,7 @@ export default function ContractAnalysisResults({
                 </div>
               </div>
               <p className="text-sm text-gray-600 mt-4">
-                This score represents the overall risk and opportunitys
+                This score represents the overall risk and opportunities
                 identified in the contract.
               </p>
             </div>
@@ -279,7 +279,7 @@ export default function ContractAnalysisResults({
               </Card>
               <Card>
                 <CardHeader>
-                  <CardTitle>Recommdations</CardTitle>
+                  <CardTitle>Recommendations</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ul className="space-y-2">
@@ -333,7 +333,7 @@ export default function ContractAnalysisResults({
                     <p>{analysisResults.terminationConditions}</p>
                   </div>
                   <div>
-                    <h3 className="font-semibold mb-2">Legal Informatiob</h3>
+                    <h3 className="font-semibold mb-2">Legal Information</h3>
                     <p>
                       <strong>Legal Compliance</strong>
                       {analysisResults.legalCompliance}

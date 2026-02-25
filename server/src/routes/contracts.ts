@@ -2,6 +2,7 @@ import express from "express";
 import { isAuthenticated } from "../middleware/auth";
 import {
   analyzeContract,
+  deleteContract,
   detectAndConfirmContractType,
   getContractByID,
   getUserContracts,
@@ -27,5 +28,10 @@ router.post(
 
 router.get("/user-contracts", isAuthenticated, handleErrors(getUserContracts));
 router.get("/contract/:id", isAuthenticated, handleErrors(getContractByID));
+router.delete(
+  "/contract/:id",
+  isAuthenticated,
+  handleErrors(deleteContract)
+);
 
 export default router;

@@ -68,16 +68,16 @@ export default function Settings() {
             <div className="space-y-2">
               <Label>Full Name</Label>
               <Input
-                value={user.displayName}
+                value={user?.displayName || user?.name || ""}
                 id="name"
                 readOnly
                 className="bg-gray-100"
               />
             </div>
             <div className="space-y-2">
-              <Label>Full Name</Label>
+              <Label>Email Address</Label>
               <Input
-                value={user.email}
+                value={user?.email || ""}
                 id="email"
                 readOnly
                 className="bg-gray-100"
@@ -121,7 +121,7 @@ export default function Settings() {
         ) : (
           <Card className="border-primary border-2 shadow-lg">
             <CardHeader>
-              <CardTitle>Get unlimted access forever</CardTitle>
+              <CardTitle>Get unlimited access forever</CardTitle>
               <CardDescription>
                 Upgrade to premium and enjoy unlimited access to all features
               </CardDescription>

@@ -9,7 +9,7 @@ import { useContractStore } from "@/store/zustand";
 import { toast } from "sonner";
 
 export default function ContractResultsPage() {
-  const analysisResults = useContractStore((state) => state.analysisrResults);
+  const analysisResults = useContractStore((state) => state.analysisResults);
 
   const {
     subscriptionStatus,

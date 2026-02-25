@@ -12,17 +12,19 @@ import Link from "next/link";
 import { Icons } from "./icons";
 import { logout } from "@/lib/api";
 import { useRouter } from "next/navigation";
-import { useModalStore } from "@/store/zustand";
 
 export function UserButton() {
   const router = useRouter();
   const { user } = useCurrentUser();
-  const { openModal } = useModalStore();
+
+  const displayName = user?.displayName || user?.name || "";
+  const email = user?.email || "";
+  const profilePicture = user?.profilePicture || user?.image || "";
 
   const handleLogout = async () => {
     await logout();
     window.location.reload();
-    setInterval(() => router.push("/"), 1000);
+    setTimeout(() => router.push("/"), 1000);
   };
 
   return (
@@ -33,19 +35,17 @@ export function UserButton() {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="size-8 rounded-full">
                 <Avatar className="size-8">
-                  <AvatarImage src={user?.profilePicture || ""} />
+                  <AvatarImage src={profilePicture} />
                   <AvatarFallback>
-                    {user?.displayName?.charAt(0) || ""}
+                    {displayName?.charAt(0) || "U"}
                   </AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-56" forceMount>
               <DropdownMenuItem className="flex flex-col items-start">
-                <div className="text-sm font-medium">{user?.displayName}</div>
-                <div className="text-sm text-muted-foreground">
-                  {user?.email}
-                </div>
+                <div className="text-sm font-medium">{displayName}</div>
+                <div className="text-sm text-muted-foreground">{email}</div>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
@@ -68,11 +68,18 @@ export function UserButton() {
           </DropdownMenu>
         </>
       ) : (
-        <>
-          <Button onClick={() => openModal("connectAccountModal")}>
-            Sign in
-          </Button>
-        </>
+        <div className="flex items-center gap-3">
+          <Link href="/login">
+            <Button variant="ghost" size="sm" className="text-gray-700 font-medium">
+              Login
+            </Button>
+          </Link>
+          <Link href="/register">
+            <Button size="sm" className="rounded-xl px-5 bg-gray-900 hover:bg-gray-800 text-white font-medium">
+              Sign Up
+            </Button>
+          </Link>
+        </div>
       )}
     </div>
   );

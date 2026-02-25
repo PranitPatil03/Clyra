@@ -11,7 +11,6 @@ import {
 } from "../ui/card";
 import { Button } from "../ui/button";
 import Link from "next/link";
-import { useModalStore } from "@/store/zustand";
 
 export function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useCurrentUser();
@@ -38,8 +37,6 @@ export function ProtectedLayout({ children }: { children: React.ReactNode }) {
 }
 
 export default function AuthCard() {
-  const { openModal } = useModalStore();
-
   return (
     <Card className="w-full max-w-3xl mx-auto">
       <div className="flex flex-col sm:flex-row">
@@ -57,15 +54,13 @@ export default function AuthCard() {
           </CardHeader>
           <CardContent className="px-0 py-2">
             <div className="flex flex-col sm:flex-row gap-2">
-              <Button
-                onClick={() => openModal("connectAccountModal")}
-                className="flex-1"
-                variant={"outline"}
-              >
-                Continue with Google
-              </Button>
-              <Link href={"/"} className="flex-1">
-                <Button className="w-full">Back to Home</Button>
+              <Link href="/login" className="flex-1">
+                <Button className="w-full" variant="outline">
+                  Sign In
+                </Button>
+              </Link>
+              <Link href="/register" className="flex-1">
+                <Button className="w-full">Create Account</Button>
               </Link>
             </div>
           </CardContent>

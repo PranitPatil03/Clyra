@@ -30,7 +30,7 @@ export default function PaymentSuccess() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <p>To recieive your analysis, you need to upload an PDF.</p>
+              <p>To receive your analysis, you need to upload a PDF.</p>
               <div className="bg-blue-50 border-l-4 border-blue-500 p-4">
                 <div className="flex items-center">
                   <p className="text-sm text-blue-700 text-left">

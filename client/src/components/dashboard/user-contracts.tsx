@@ -1,6 +1,8 @@
+"use client";
+
 import { ContractAnalysis } from "@/interfaces/contract.interface";
 import { api } from "@/lib/api";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import {
@@ -32,7 +34,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
-import { MoreHorizontal } from "lucide-react";
+import { Loader2, MoreHorizontal } from "lucide-react";
 import Link from "next/link";
 import {
   AlertDialog,
@@ -45,11 +47,31 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 
 export default function UserContracts() {
-  const { data: contracts } = useQuery<ContractAnalysis[]>({
+  const queryClient = useQueryClient();
+
+  const {
+    data: contracts,
+    isLoading,
+    isError,
+  } = useQuery<ContractAnalysis[]>({
     queryKey: ["user-contracts"],
     queryFn: () => fetchUserContracts(),
+  });
+
+  const { mutate: deleteContract, isPending: isDeleting } = useMutation({
+    mutationFn: async (contractId: string) => {
+      await api.delete(`/contracts/contract/${contractId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["user-contracts"] });
+      toast.success("Contract deleted successfully");
+    },
+    onError: () => {
+      toast.error("Failed to delete contract");
+    },
   });
 
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -72,7 +94,9 @@ export default function UserContracts() {
         return <Button variant={"ghost"}>Contract ID</Button>;
       },
       cell: ({ row }) => (
-        <div className="font-medium">{row.getValue<string>("_id")}</div>
+        <div className="font-medium truncate max-w-[120px]">
+          {row.getValue<string>("_id")}
+        </div>
       ),
     },
     {
@@ -144,7 +168,15 @@ export default function UserContracts() {
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction>Continue</AlertDialogAction>
+                    <AlertDialogAction
+                      onClick={() => deleteContract(contract._id)}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      {isDeleting ? (
+                        <Loader2 className="size-4 animate-spin mr-2" />
+                      ) : null}
+                      Delete
+                    </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
@@ -171,15 +203,40 @@ export default function UserContracts() {
   const averageScore =
     totalContracts > 0
       ? (contracts?.reduce(
-          (sum, contract) => sum + (contract.overallScore ?? 0),
-          0
-        ) ?? 0) / totalContracts
+        (sum, contract) => sum + (contract.overallScore ?? 0),
+        0
+      ) ?? 0) / totalContracts
       : 0;
 
   const highRiskContracts =
     contracts?.filter((contract) =>
       contract.risks.some((risk) => risk.severity === "high")
     ).length ?? 0;
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="size-8 animate-spin text-primary" />
+          <span className="ml-3 text-muted-foreground">
+            Loading contracts...
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="flex items-center justify-center h-64">
+          <p className="text-destructive">
+            Failed to load contracts. Please try again.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto p-6 space-y-8">
@@ -202,7 +259,7 @@ export default function UserContracts() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Total Contracts
+              Average Score
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -232,9 +289,9 @@ export default function UserContracts() {
                       {header.isPlaceholder
                         ? null
                         : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
                     </TableHead>
                   );
                 })}
@@ -264,7 +321,7 @@ export default function UserContracts() {
                   colSpan={columns.length}
                   className="h-24 text-center"
                 >
-                  No results.
+                  No contracts yet. Upload one to get started.
                 </TableCell>
               </TableRow>
             )}
@@ -292,7 +349,9 @@ export default function UserContracts() {
       <UploadModal
         isOpen={isUploadModalOpen}
         onClose={() => setIsUploadModalOpen(false)}
-        onUploadComplete={() => table.reset()}
+        onUploadComplete={() => {
+          queryClient.invalidateQueries({ queryKey: ["user-contracts"] });
+        }}
       />
     </div>
   );
