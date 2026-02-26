@@ -5,12 +5,14 @@ interface IRisk {
   risk: string;
   explanation: string;
   severity: "low" | "medium" | "high";
+  suggestedAlternative?: string;
 }
 
 interface IOpportunity {
   opportunity: string;
   explanation: string;
   impact: "low" | "medium" | "high";
+  suggestedAlternative?: string;
 }
 
 interface ICompensationStructure {
@@ -57,8 +59,8 @@ export interface IContractAnalysis extends Document {
 const ContractAnalysisSchema: Schema = new Schema({
   userId: { type: String, required: true },
   contractText: { type: String, required: true },
-  risks: [{ risk: String, explanation: String, severity: String }],
-  opportunities: [{ opportunity: String, explanation: String, impact: String }],
+  risks: [{ risk: String, explanation: String, severity: String, suggestedAlternative: String }],
+  opportunities: [{ opportunity: String, explanation: String, impact: String, suggestedAlternative: String }],
   summary: { type: String, required: true },
   recommendations: [{ type: String }],
   keyClauses: [{ type: String }],

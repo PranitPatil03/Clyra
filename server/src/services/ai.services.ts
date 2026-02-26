@@ -55,7 +55,7 @@ async function chatCompletion(prompt: string): Promise<string> {
       { role: "user", content: prompt },
     ],
     temperature: 0.3,
-    max_tokens: 4096,
+    max_tokens: 8192,
   });
 
   return response.choices[0]?.message?.content || "";
@@ -103,54 +103,63 @@ export const analyzeContractWithAI = async (
   let prompt;
   if (tier === "premium") {
     prompt = `
-    Analyze the following ${contractType} contract and provide:
-    1. A list of at least 10 potential risks for the party receiving the contract, each with a brief explanation and severity level (low, medium, high).
-    2. A list of at least 10 potential opportunities or benefits for the receiving party, each with a brief explanation and impact level (low, medium, high).
-    3. A comprehensive summary of the contract, including key terms and conditions.
-    4. Any recommendations for improving the contract from the receiving party's perspective.
-    5. A list of key clauses in the contract.
-    6. An assessment of the contract's legal compliance.
-    7. A list of potential negotiation points.
-    8. The contract duration or term, if applicable.
-    9. A summary of termination conditions, if applicable.
-    10. A breakdown of any financial terms or compensation structure, if applicable.
-    11. Any performance metrics or KPIs mentioned, if applicable.
-    12. A summary of any specific clauses relevant to this type of contract (e.g., intellectual property for employment contracts, warranties for sales contracts).
-    13. An overall score from 1 to 100, with 100 being the highest. This score represents the overall favorability of the contract based on the identified risks and opportunities.
+    Analyze the following ${contractType} contract thoroughly and provide a comprehensive legal analysis from the receiving party's perspective.
 
-    Format your response as a JSON object with the following structure:
+    Provide the following:
+    1. At least 10 potential risks for the receiving party. For each risk: a concise title, a detailed explanation of exactly why it is harmful or problematic, severity level (high/medium/low), and a specific suggested alternative — concrete better clause language or negotiation approach the receiving party should use.
+    2. At least 10 opportunities or benefits for the receiving party. For each: a concise title, a detailed explanation of the benefit, impact level (high/medium/low), and how to leverage or negotiate this opportunity for better terms.
+    3. A comprehensive 3-5 paragraph summary covering key obligations, rights, risks, and overall assessment.
+    4. Specific actionable recommendations to improve the contract from the receiving party's perspective.
+    5. Key clauses explained in plain language — what each clause means in practice.
+    6. An assessment of legal compliance and any regulatory concerns.
+    7. Priority negotiation points with reasoning for why each matters.
+    8. Contract duration and renewal terms.
+    9. Termination conditions, notice requirements, and consequences.
+    10. Financial terms and compensation structure breakdown.
+    11. Performance metrics or KPIs if mentioned.
+    12. Intellectual property clause analysis — who owns what.
+    13. Overall favorability score from 1 to 100 (100 = most favorable to receiving party).
+
+    Format your response as a JSON object with this exact structure:
     {
-      "risks": [{"risk": "Risk description", "explanation": "Brief explanation", "severity": "low|medium|high"}],
-      "opportunities": [{"opportunity": "Opportunity description", "explanation": "Brief explanation", "impact": "low|medium|high"}],
-      "summary": "Comprehensive summary of the contract",
-      "recommendations": ["Recommendation 1", "Recommendation 2", ...],
-      "keyClauses": ["Clause 1", "Clause 2", ...],
-      "legalCompliance": "Assessment of legal compliance",
-      "negotiationPoints": ["Point 1", "Point 2", ...],
-      "contractDuration": "Duration of the contract, if applicable",
-      "terminationConditions": "Summary of termination conditions, if applicable",
-      "overallScore": "Overall score from 1 to 100",
+      "risks": [{"risk": "Concise risk title", "explanation": "Detailed explanation of why this is harmful and its potential consequences", "severity": "high|medium|low", "suggestedAlternative": "Specific better clause language or negotiation approach to use instead"}],
+      "opportunities": [{"opportunity": "Opportunity title", "explanation": "Detailed explanation of the benefit and why it matters", "impact": "high|medium|low", "suggestedAlternative": "Concrete steps or language to negotiate to maximize this opportunity"}],
+      "summary": "Comprehensive 3-5 paragraph summary",
+      "recommendations": ["Specific actionable recommendation 1", "Recommendation 2"],
+      "keyClauses": ["Plain-language explanation of clause 1 and what it means in practice", "Clause 2"],
+      "legalCompliance": "Assessment of legal compliance and regulatory concerns",
+      "negotiationPoints": ["Priority negotiation point 1 with reasoning", "Point 2"],
+      "contractDuration": "Duration, term, and renewal conditions",
+      "terminationConditions": "Termination conditions, notice requirements, and consequences",
+      "overallScore": 75,
       "financialTerms": {
-        "description": "Overview of financial terms",
-        "details": ["Detail 1", "Detail 2", ...]
+        "description": "Overview of all financial terms",
+        "details": ["Financial detail 1", "Detail 2"]
       },
-      "performanceMetrics": ["Metric 1", "Metric 2", ...],
-      "specificClauses": "Summary of clauses specific to this contract type"
+      "compensationStructure": {
+        "baseSalary": "Base salary or rate if applicable",
+        "bonuses": "Bonus structure if applicable",
+        "equity": "Equity or stock options if applicable",
+        "otherBenefits": "Other benefits or perks if applicable"
+      },
+      "performanceMetrics": ["Metric 1", "Metric 2"],
+      "intellectualPropertyClauses": "Summary of IP ownership, assignment, and licensing clauses"
     }
       `;
   } else {
     prompt = `
     Analyze the following ${contractType} contract and provide:
-    1. A list of at least 5 potential risks for the party receiving the contract, each with a brief explanation and severity level (low, medium, high).
-    2. A list of at least 5 potential opportunities or benefits for the receiving party, each with a brief explanation and impact level (low, medium, high).
-    3. A brief summary of the contract
-    4. An overall score from 1 to 100, with 100 being the highest. This score represents the overall favorability of the contract based on the identified risks and opportunities.
+    1. At least 5 potential risks for the receiving party, each with a brief explanation and severity level (high/medium/low).
+    2. At least 5 opportunities or benefits for the receiving party, each with a brief explanation and impact level (high/medium/low).
+    3. A brief 2-3 sentence summary of the contract.
+    4. An overall favorability score from 1 to 100 (100 = most favorable to receiving party).
 
-     {
-      "risks": [{"risk": "Risk description", "explanation": "Brief explanation"}],
-      "opportunities": [{"opportunity": "Opportunity description", "explanation": "Brief explanation"}],
-      "summary": "Brief summary of the contract",
-      "overallScore": "Overall score from 1 to 100"
+    Format as JSON:
+    {
+      "risks": [{"risk": "Risk title", "explanation": "Brief explanation", "severity": "high|medium|low"}],
+      "opportunities": [{"opportunity": "Opportunity title", "explanation": "Brief explanation", "impact": "high|medium|low"}],
+      "summary": "Brief 2-3 sentence summary",
+      "overallScore": 50
     }
 `;
   }
