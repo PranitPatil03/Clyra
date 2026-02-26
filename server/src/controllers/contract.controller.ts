@@ -12,6 +12,23 @@ import ContractAnalysisSchema, {
 } from "../models/contract.model";
 import mongoose, { FilterQuery } from "mongoose";
 import { isValidMongoId } from "../utils/mongoUtils";
+import { MongoClient, ObjectId } from "mongodb";
+
+// better-auth session.user uses `id` (string), MongoDB stores `_id` as ObjectId
+const getUserId = (user: any): string => user.id || String(user._id);
+
+// Connect to the same MongoDB that better-auth uses
+const mongoClient = new MongoClient(process.env.MONGODB_URI as string);
+const authDb = mongoClient.db();
+
+async function checkIsPremium(userId: string): Promise<boolean> {
+  try {
+    const user = await authDb.collection("user").findOne({ _id: new ObjectId(userId) });
+    return user?.isPremium === true;
+  } catch {
+    return false;
+  }
+}
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -38,7 +55,7 @@ export const detectAndConfirmContractType = async (
   }
 
   try {
-    const fileKey = `file:${user._id}:${Date.now()}`;
+    const fileKey = `file:${getUserId(user)}:${Date.now()}`;
     await redis.set(fileKey, req.file.buffer);
 
     await redis.expire(fileKey, 3600); // 1 hour
@@ -68,14 +85,15 @@ export const analyzeContract = async (req: Request, res: Response) => {
   }
 
   try {
-    const fileKey = `file:${user._id}:${Date.now()}`;
+    const fileKey = `file:${getUserId(user)}:${Date.now()}`;
     await redis.set(fileKey, req.file.buffer);
     await redis.expire(fileKey, 3600); // 1 hour
 
     const pdfText = await extractTextFromPDF(fileKey);
     let analysis;
 
-    if (user.isPremium) {
+    const isPremium = await checkIsPremium(getUserId(user));
+    if (isPremium) {
       analysis = await analyzeContractWithAI(pdfText, "premium", contractType);
     } else {
       analysis = await analyzeContractWithAI(pdfText, "free", contractType);
@@ -86,12 +104,12 @@ export const analyzeContract = async (req: Request, res: Response) => {
     }
 
     const savedAnalysis = await ContractAnalysisSchema.create({
-      userId: user._id,
+      userId: getUserId(user),
       contractText: pdfText,
       contractType,
       ...(analysis as Partial<IContractAnalysis>),
       language: "en",
-      aiModel: "gemini-2.0-flash",
+      aiModel: "llama-3.3-70b",
     });
 
     res.json(savedAnalysis);
@@ -105,14 +123,9 @@ export const getUserContracts = async (req: Request, res: Response) => {
   const user = req.user as IUser;
 
   try {
-    interface QueryType {
-      userId: mongoose.Types.ObjectId;
-    }
-
-    const query: QueryType = { userId: user._id as mongoose.Types.ObjectId };
-    const contracts = await ContractAnalysisSchema.find(
-      query as FilterQuery<IContractAnalysis>
-    ).sort({ createdAt: -1 });
+    const contracts = await ContractAnalysisSchema.find({
+      userId: getUserId(user),
+    }).sort({ createdAt: -1 });
 
     res.json(contracts);
   } catch (error) {
@@ -138,7 +151,7 @@ export const getContractByID = async (req: Request, res: Response) => {
     //if not in cache, get from db
     const contract = await ContractAnalysisSchema.findOne({
       _id: id,
-      userId: user._id,
+      userId: getUserId(user),
     });
 
     if (!contract) {
@@ -166,7 +179,7 @@ export const deleteContract = async (req: Request, res: Response) => {
   try {
     const contract = await ContractAnalysisSchema.findOneAndDelete({
       _id: id,
-      userId: user._id,
+      userId: getUserId(user),
     });
 
     if (!contract) {

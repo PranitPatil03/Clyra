@@ -55,7 +55,7 @@ export interface IContractAnalysis extends Document {
 }
 
 const ContractAnalysisSchema: Schema = new Schema({
-  userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+  userId: { type: String, required: true },
   contractText: { type: String, required: true },
   risks: [{ risk: String, explanation: String, severity: String }],
   opportunities: [{ opportunity: String, explanation: String, impact: String }],

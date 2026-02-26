@@ -1,10 +1,9 @@
 import redis from "../config/redis";
 import { getDocument } from "pdfjs-dist";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import Groq from "groq-sdk";
 
-const AI_MODEL = "gemini-2.0-flash";
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-const aiModel = genAI.getGenerativeModel({ model: AI_MODEL });
+const AI_MODEL = "llama-3.3-70b-versatile";
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 export const extractTextFromPDF = async (fileKey: string) => {
   try {
@@ -44,21 +43,56 @@ export const extractTextFromPDF = async (fileKey: string) => {
   }
 };
 
+async function chatCompletion(prompt: string): Promise<string> {
+  const response = await groq.chat.completions.create({
+    model: AI_MODEL,
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are a legal contract analysis expert. You provide precise, structured analysis in JSON format only. Never include markdown formatting or extra text outside the JSON.",
+      },
+      { role: "user", content: prompt },
+    ],
+    temperature: 0.3,
+    max_tokens: 4096,
+  });
+
+  return response.choices[0]?.message?.content || "";
+}
+
 export const detectContractType = async (
   contractText: string
 ): Promise<string> => {
   const prompt = `
     Analyze the following contract text and determine the type of contract it is.
-    Provide only the contract type as a single string (e.g., "Employment", "Non-Disclosure Agreement", "Sales", "Lease", etc.).
-    Do not include any additional explanation or text.
+    Provide only the contract type as a single plain string (e.g., "Employment Agreement", "Non-Disclosure Agreement", "Sales Agreement", "Lease Agreement", etc.).
+    Do not include any JSON, quotes, or additional explanation. Just the type name.
 
     Contract text:
     ${contractText.substring(0, 2000)}
   `;
 
-  const results = await aiModel.generateContent(prompt);
-  const response = results.response;
-  return response.text().trim();
+  let result = await chatCompletion(prompt);
+  result = result.trim();
+
+  // Handle cases where AI returns JSON like {"contract_type": "Lease"}
+  try {
+    const parsed = JSON.parse(result);
+    if (typeof parsed === "object" && parsed !== null) {
+      return (
+        parsed.contract_type ||
+        parsed.contractType ||
+        parsed.type ||
+        (Object.values(parsed)[0] as string) ||
+        "Unknown"
+      );
+    }
+    return String(parsed);
+  } catch {
+    // It's a plain string — just clean up quotes
+    return result.replace(/^["']|["']$/g, "").trim();
+  }
 };
 
 export const analyzeContractWithAI = async (
@@ -129,20 +163,16 @@ export const analyzeContractWithAI = async (
     ${contractText}
     `;
 
-  const results = await aiModel.generateContent(prompt);
-  const response = await results.response;
-  let text = response.text();
-
-  // remove any markdown formatting
-  text = text.replace(/```json\n?|\n?```/g, "").trim();
+  const text = await chatCompletion(prompt);
+  let cleanedText = text.replace(/```json\n?|\n?```/g, "").trim();
 
   try {
     // Attempt to fix common JSON errors
-    text = text.replace(/([{,]\s*)(\w+)(\s*:)/g, '$1"$2"$3'); // Ensure all keys are quoted
-    text = text.replace(/:\s*"([^"]*)"([^,}\]])/g, ': "$1"$2'); // Ensure all string values are properly quoted
-    text = text.replace(/,\s*}/g, "}"); // Remove trailing commas
+    cleanedText = cleanedText
+      .replace(/,\s*}/g, "}") // Remove trailing commas before }
+      .replace(/,\s*]/g, "]"); // Remove trailing commas before ]
 
-    const analysis = JSON.parse(text);
+    const analysis = JSON.parse(cleanedText);
     return analysis;
   } catch (error) {
     console.log("Error parsing JSON:", error);
@@ -171,7 +201,7 @@ export const analyzeContractWithAI = async (
   };
 
   // Extract risks
-  const risksMatch = text.match(/"risks"\s*:\s*\[([\s\S]*?)\]/);
+  const risksMatch = cleanedText.match(/"risks"\s*:\s*\[([\s\S]*?)\]/);
   if (risksMatch) {
     fallbackAnalysis.risks = risksMatch[1].split("},").map((risk) => {
       const riskMatch = risk.match(/"risk"\s*:\s*"([^"]*)"/);
@@ -184,7 +214,9 @@ export const analyzeContractWithAI = async (
   }
 
   //Extact opportunities
-  const opportunitiesMatch = text.match(/"opportunities"\s*:\s*\[([\s\S]*?)\]/);
+  const opportunitiesMatch = cleanedText.match(
+    /"opportunities"\s*:\s*\[([\s\S]*?)\]/
+  );
   if (opportunitiesMatch) {
     fallbackAnalysis.opportunities = opportunitiesMatch[1]
       .split("},")
@@ -203,7 +235,7 @@ export const analyzeContractWithAI = async (
   }
 
   // Extract summary
-  const summaryMatch = text.match(/"summary"\s*:\s*"([^"]*)"/);
+  const summaryMatch = cleanedText.match(/"summary"\s*:\s*"([^"]*)"/);
   if (summaryMatch) {
     fallbackAnalysis.summary = summaryMatch[1];
   }

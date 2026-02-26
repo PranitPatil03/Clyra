@@ -28,8 +28,8 @@ const plans = [
   {
     name: "Pro",
     description: "For professionals who need deeper contract insights.",
-    price: "$10",
-    period: "/lifetime",
+    price: "$20",
+    period: "/month",
     buttonText: "Upgrade to Pro",
     highlight: true,
     features: [
@@ -148,8 +148,8 @@ export function PricingSection() {
             </div>
 
             <div className="mb-8 flex items-baseline gap-1 relative z-10">
-              <span className="text-6xl font-light text-gray-900 tracking-tight">$10</span>
-              <span className="text-base text-gray-400 font-medium">/lifetime</span>
+              <span className="text-6xl font-light text-gray-900 tracking-tight">$20</span>
+              <span className="text-base text-gray-400 font-medium">/month</span>
             </div>
 
             <Button

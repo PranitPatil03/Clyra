@@ -3,17 +3,33 @@
 import { api } from "@/lib/api";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
+import { useCurrentUser } from "@/hooks/use-current-user";
 
 export default function LoginPage() {
     const router = useRouter();
+    const { user, isLoading: isAuthLoading } = useCurrentUser();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
+    useEffect(() => {
+        if (!isAuthLoading && user) {
+            router.replace("/dashboard");
+        }
+    }, [user, isAuthLoading, router]);
+
+    if (isAuthLoading || user) {
+        return (
+            <div className="flex items-center justify-center h-screen bg-[#f8fafc]">
+                <Loader2 className="size-6 animate-spin text-gray-400" />
+            </div>
+        );
+    }
 
     const handleEmailLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -46,16 +62,16 @@ export default function LoginPage() {
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-[#f8fafc] px-4">
-            <div className="w-full max-w-md">
+            <div className="w-full max-w-sm p-8">
                 {/* Logo */}
                 <div className="text-center mb-8">
                     <Link
                         href="/"
-                        className="text-xl font-medium tracking-tight text-gray-400 inline-block"
+                        className="text-xl font-light tracking-tight text-gray-900 inline-block"
                     >
                         Clyra
                     </Link>
-                    <h1 className="text-2xl font-bold text-gray-900 mt-3">
+                    <h1 className="text-2xl font-medium text-gray-900 mt-3">
                         Login to your account
                     </h1>
                     <p className="text-sm text-gray-400 mt-2">

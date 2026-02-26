@@ -1,41 +1,87 @@
 import { Request, Response } from "express";
 import Stripe from "stripe";
-import User, { IUser } from "../models/user.model";
+import { MongoClient, ObjectId } from "mongodb";
 import { sendPremiumConfirmationEmail } from "../services/email.service";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2024-09-30.acacia",
 });
 
+// Connect to the same MongoDB that better-auth uses
+const mongoClient = new MongoClient(process.env.MONGODB_URI as string);
+const db = mongoClient.db();
+
+// better-auth session.user uses `id` (string), MongoDB stores `_id` as ObjectId
+const getUserId = (user: any): string => user.id || String(user._id);
+
+// Find user in better-auth's user collection
+// _id is stored as ObjectId, so we must convert the string ID
+async function findAuthUser(userId: string) {
+  try {
+    return await db.collection("user").findOne({ _id: new ObjectId(userId) });
+  } catch (err) {
+    // Fallback: try by email if ObjectId conversion fails
+    console.error("findAuthUser error for userId:", userId, err);
+    return null;
+  }
+}
+
+// Update user in better-auth's user collection
+async function updateAuthUser(userId: string, update: Record<string, any>) {
+  return db.collection("user").updateOne(
+    { _id: new ObjectId(userId) },
+    { $set: update }
+  );
+}
+
 export const createCheckoutSession = async (req: Request, res: Response) => {
   const user = req.user as any;
+  const userId = getUserId(user);
 
   try {
+    // Check if user already has a Stripe customer ID
+    const dbUser = await findAuthUser(userId);
+    let customerId = dbUser?.stripeCustomerId;
+
+    if (!customerId) {
+      // Create a Stripe customer
+      const customer = await stripe.customers.create({
+        email: user.email,
+        metadata: { userId },
+      });
+      customerId = customer.id;
+      await updateAuthUser(userId, { stripeCustomerId: customerId });
+    }
+
     const session = await stripe.checkout.sessions.create({
+      customer: customerId,
       payment_method_types: ["card"],
       line_items: [
         {
           price_data: {
             currency: "usd",
             product_data: {
-              name: "Lifetime Subscription",
+              name: "ContractAI Pro",
+              description: "Full access to all AI contract analysis features",
             },
-            unit_amount: 1000, // $10
+            unit_amount: 2000, // $20
+            recurring: {
+              interval: "month",
+            },
           },
           quantity: 1,
         },
       ],
-      customer_email: user.email,
-      mode: "payment",
+      mode: "subscription",
       success_url: `${process.env.CLIENT_URL}/payment-success`,
-      cancel_url: `${process.env.CLIENT_URL}/payment-cancel`,
-      client_reference_id: user._id.toString(),
+      cancel_url: `${process.env.CLIENT_URL}/dashboard/settings`,
+      client_reference_id: userId,
     });
 
     res.json({ sessionId: session.id });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Failed to create charge" });
+    console.error("createCheckoutSession error:", error);
+    res.status(500).json({ error: "Failed to create checkout session" });
   }
 };
 
@@ -56,21 +102,64 @@ export const handleWebhook = async (req: Request, res: Response) => {
     return;
   }
 
-  if (event.type === "checkout.session.completed") {
-    const session = event.data.object as Stripe.Checkout.Session;
-    const userId = session.client_reference_id;
+  console.log("Webhook event:", event.type);
 
-    if (userId) {
-      const user = await User.findByIdAndUpdate(
-        userId,
-        { isPremium: true },
-        { new: true }
-      );
-      console.log(`User ${userId} upgraded to premium`);
+  switch (event.type) {
+    case "checkout.session.completed": {
+      const session = event.data.object as Stripe.Checkout.Session;
+      const userId = session.client_reference_id;
+      const subscriptionId = session.subscription as string;
 
-      if (user && user.email) {
-        await sendPremiumConfirmationEmail(user.email, user.displayName);
+      if (userId) {
+        const result = await updateAuthUser(userId, {
+          isPremium: true,
+          premiumSince: new Date(),
+          stripeSubscriptionId: subscriptionId,
+          stripeCustomerId: session.customer as string,
+        });
+        console.log(`Webhook: User ${userId} upgraded to premium. Matched: ${result.matchedCount}, Modified: ${result.modifiedCount}`);
+
+        // Send confirmation email
+        try {
+          const user = await findAuthUser(userId);
+          if (user?.email) {
+            await sendPremiumConfirmationEmail(user.email, user.name || "User");
+          }
+        } catch (emailErr) {
+          console.error("Failed to send premium email:", emailErr);
+        }
       }
+      break;
+    }
+
+    case "customer.subscription.deleted":
+    case "customer.subscription.updated": {
+      const subscription = event.data.object as Stripe.Subscription;
+      const customerId = subscription.customer as string;
+
+      // Find user by stripeCustomerId
+      const user = await db.collection("user").findOne({ stripeCustomerId: customerId });
+
+      if (user) {
+        const isActive = subscription.status === "active" || subscription.status === "trialing";
+        const uid = String(user._id);
+        await updateAuthUser(uid, {
+          isPremium: isActive,
+          ...(!isActive && { premiumEndedAt: new Date() }),
+        });
+        console.log(`Webhook: User ${uid} subscription ${subscription.status} → isPremium: ${isActive}`);
+      }
+      break;
+    }
+
+    case "invoice.payment_failed": {
+      const invoice = event.data.object as Stripe.Invoice;
+      const customerId = invoice.customer as string;
+      const user = await db.collection("user").findOne({ stripeCustomerId: customerId });
+      if (user) {
+        console.log(`Webhook: Payment failed for user ${user._id}`);
+      }
+      break;
     }
   }
 
@@ -78,10 +167,24 @@ export const handleWebhook = async (req: Request, res: Response) => {
 };
 
 export const getPremiumStatus = async (req: Request, res: Response) => {
-  const user = req.user as IUser;
-  if (user.isPremium) {
-    res.json({ status: "active" });
-  } else {
-    res.json({ status: "inactive" });
+  const user = req.user as any;
+  const userId = getUserId(user);
+
+  try {
+    const dbUser = await findAuthUser(userId);
+    console.log(`getPremiumStatus: userId=${userId}, found=${!!dbUser}, isPremium=${dbUser?.isPremium}`);
+
+    if (dbUser?.isPremium) {
+      res.json({
+        status: "active",
+        plan: "pro",
+        since: dbUser.premiumSince,
+      });
+    } else {
+      res.json({ status: "inactive", plan: "free" });
+    }
+  } catch (error) {
+    console.error("Error checking premium status:", error);
+    res.json({ status: "inactive", plan: "free" });
   }
 };
