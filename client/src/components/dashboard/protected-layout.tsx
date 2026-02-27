@@ -1,71 +1,31 @@
 "use client";
 
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { Loader2, LockIcon } from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "../ui/card";
-import { Button } from "../ui/button";
-import Link from "next/link";
+import { Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 export function ProtectedLayout({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const { user, isLoading } = useCurrentUser();
+
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.replace("/login");
+    }
+  }, [user, isLoading, router]);
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <div className="flex items-center justify-center">
-          <Loader2 className="size-4 mr-2 animate-spin" />
-        </div>
+        <Loader2 className="size-6 animate-spin text-gray-400" />
       </div>
     );
   }
 
   if (!user) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <AuthCard />
-      </div>
-    );
+    return null;
   }
 
   return <>{children}</>;
-}
-
-export default function AuthCard() {
-  return (
-    <Card className="w-full max-w-3xl mx-auto">
-      <div className="flex flex-col sm:flex-row">
-        <div className="sm:w-1/4 bg-primary/10 flex items-center justify-center p-4">
-          <LockIcon className="size-16 text-primary" />
-        </div>
-        <div className="sm:w-3/4 p-4">
-          <CardHeader className="space-y-1 px-0 pb-2">
-            <CardTitle className="text-2xl font-bold">
-              Authentication required
-            </CardTitle>
-            <CardDescription>
-              You need to be logged in to access this page.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="px-0 py-2">
-            <div className="flex flex-col sm:flex-row gap-2">
-              <Link href="/login" className="flex-1">
-                <Button className="w-full" variant="outline">
-                  Sign In
-                </Button>
-              </Link>
-              <Link href="/register" className="flex-1">
-                <Button className="w-full">Create Account</Button>
-              </Link>
-            </div>
-          </CardContent>
-        </div>
-      </div>
-    </Card>
-  );
 }

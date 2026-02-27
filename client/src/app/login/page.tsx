@@ -45,8 +45,16 @@ export default function LoginPage() {
             if (response.data) {
                 toast.success("Login successful!");
                 await queryClient.invalidateQueries({ queryKey: ["currentUser"] });
-                await queryClient.refetchQueries({ queryKey: ["currentUser"] });
-                router.replace("/dashboard");
+                const { data: newUser } = await queryClient.fetchQuery({ 
+                    queryKey: ["currentUser"],
+                    queryFn: async () => {
+                        const res = await api.get("/auth/current-user");
+                        return res.data;
+                    }
+                });
+                if (newUser) {
+                    router.replace("/dashboard");
+                }
             }
         } catch (error: any) {
             toast.error(
