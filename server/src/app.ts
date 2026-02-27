@@ -51,6 +51,11 @@ app.use("/auth", authRoute);
 app.use("/contracts", contractsRoute);
 app.use("/payments", paymentsRoute);
 
+
+app.get("/api/health", (req, res) => {
+  res.status(200).json({ message: "OK" });
+});
+
 const PORT = 8080;
 app.listen(PORT, () => {
   console.log(`Server started on port ${PORT}`);
