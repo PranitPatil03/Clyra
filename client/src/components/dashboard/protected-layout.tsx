@@ -24,7 +24,11 @@ export function ProtectedLayout({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) {
-    return null;
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="size-6 animate-spin text-gray-400" />
+      </div>
+    );
   }
 
   return <>{children}</>;

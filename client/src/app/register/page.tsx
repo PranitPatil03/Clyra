@@ -48,19 +48,10 @@ export default function RegisterPage() {
                 password,
             });
 
-            if (response.data) {
+            if (response.status === 200) {
                 toast.success("Account created successfully!");
-                await queryClient.invalidateQueries({ queryKey: ["currentUser"] });
-                const { data: newUser } = await queryClient.fetchQuery({ 
-                    queryKey: ["currentUser"],
-                    queryFn: async () => {
-                        const res = await api.get("/auth/current-user");
-                        return res.data;
-                    }
-                });
-                if (newUser) {
-                    router.replace("/dashboard");
-                }
+                router.refresh();
+                router.replace("/dashboard");
             }
         } catch (error: any) {
             toast.error(
