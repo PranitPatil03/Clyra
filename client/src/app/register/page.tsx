@@ -1,6 +1,7 @@
 "use client";
 
 import { api } from "@/lib/api";
+import { queryClient } from "@/providers/tanstack/react-query-client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
@@ -49,8 +50,9 @@ export default function RegisterPage() {
 
             if (response.data) {
                 toast.success("Account created successfully!");
-                router.push("/dashboard");
-                router.refresh();
+                await queryClient.invalidateQueries({ queryKey: ["currentUser"] });
+                await queryClient.refetchQueries({ queryKey: ["currentUser"] });
+                router.replace("/dashboard");
             }
         } catch (error: any) {
             toast.error(
