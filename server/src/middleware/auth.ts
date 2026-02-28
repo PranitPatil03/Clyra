@@ -7,6 +7,8 @@ export const isAuthenticated = async (
   res: Response,
   next: NextFunction
 ) => {
+  console.log("CORS check reached isAuthenticated!");
+  console.log("Headers cookie:", req.headers.cookie);
   try {
     const session = await auth.api.getSession({
       headers: fromNodeHeaders(req.headers),
@@ -17,6 +19,7 @@ export const isAuthenticated = async (
       req.user = session.user;
       return next();
     }
+    console.log("No session found in better-auth. session variable:", session);
   } catch (error) {
     console.error("Auth error:", error);
   }
