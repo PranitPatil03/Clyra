@@ -172,7 +172,30 @@ export const getPremiumStatus = async (req: Request, res: Response) => {
 
   try {
     const dbUser = await findAuthUser(userId);
-    console.log(`getPremiumStatus: userId=${userId}, found=${!!dbUser}, isPremium=${dbUser?.isPremium}`);
+    console.log(`getPremiumStatus: userId=${userId}, found=${!!dbUser}, dbIsPremium=${dbUser?.isPremium}`);
+
+    // If the database says they aren't premium, but they have a stripe customer ID,
+    // let's double check Stripe directly. This fixes issues where webhooks are missed/unconfigured.
+    if (dbUser && !dbUser.isPremium && dbUser.stripeCustomerId) {
+      const subscriptions = await stripe.subscriptions.list({
+        customer: dbUser.stripeCustomerId,
+        status: "active",
+        limit: 1,
+      });
+
+      if (subscriptions.data.length > 0) {
+        // They actually do have an active subscription! Update the DB to reflect this.
+        const subscription = subscriptions.data[0];
+        await updateAuthUser(userId, {
+          isPremium: true,
+          premiumSince: new Date(subscription.start_date * 1000),
+          stripeSubscriptionId: subscription.id,
+        });
+        dbUser.isPremium = true;
+        dbUser.premiumSince = new Date(subscription.start_date * 1000);
+        console.log(`Dynamically verified active subscription for user ${userId} via Stripe API.`);
+      }
+    }
 
     if (dbUser?.isPremium) {
       res.json({
