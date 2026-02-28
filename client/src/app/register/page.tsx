@@ -12,6 +12,7 @@ import { useCurrentUser } from "@/hooks/use-current-user";
 export default function RegisterPage() {
     const router = useRouter();
     const { user, isLoading: isAuthLoading } = useCurrentUser();
+    const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
@@ -44,6 +45,7 @@ export default function RegisterPage() {
 
         try {
             const response = await api.post("/api/auth/sign-up/email", {
+                name,
                 email,
                 password,
             });
@@ -88,6 +90,17 @@ export default function RegisterPage() {
 
                 {/* Form */}
                 <form onSubmit={handleRegister} className="space-y-4">
+                    <div>
+                        <input
+                            id="name"
+                            type="text"
+                            placeholder="Full name"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            required
+                            className="w-full h-12 px-4 rounded-xl border border-gray-200 bg-white text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-400/40 focus:border-orange-400 transition-all"
+                        />
+                    </div>
                     <div>
                         <input
                             id="email"

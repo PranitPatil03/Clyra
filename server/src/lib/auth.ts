@@ -6,6 +6,7 @@ const client = new MongoClient(process.env.MONGODB_URI as string);
 
 export const auth = betterAuth({
     baseURL: process.env.BETTER_AUTH_URL,
+    trustHost: process.env.NODE_ENV === "production",
     database: mongodbAdapter(client.db()),
     emailAndPassword: {
         enabled: true,
@@ -17,4 +18,10 @@ export const auth = betterAuth({
         },
     },
     trustedOrigins: [process.env.CLIENT_URL as string],
+    advanced: {
+        defaultCookieAttributes: {
+            sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+            secure: process.env.NODE_ENV === "production",
+        },
+    },
 });

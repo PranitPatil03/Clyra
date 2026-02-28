@@ -25,9 +25,6 @@ router.get("/logout", async (req, res, next) => {
   }
 });
 
-// Call Better Auth's signInSocial API server-side, then forward
-// the Set-Cookie headers (containing the OAuth state) to the browser
-// before redirecting to Google.
 router.get("/google", async (req, res) => {
   try {
     const response = await auth.api.signInSocial({
