@@ -179,11 +179,15 @@ export const getPremiumStatus = async (req: Request, res: Response) => {
     if (dbUser && !dbUser.isPremium && dbUser.stripeCustomerId) {
       const subscriptions = await stripe.subscriptions.list({
         customer: dbUser.stripeCustomerId,
-        status: "active",
+        status: "all",
         limit: 1,
       });
 
-      if (subscriptions.data.length > 0) {
+      if (
+        subscriptions.data.length > 0 &&
+        (subscriptions.data[0].status === "active" ||
+          subscriptions.data[0].status === "trialing")
+      ) {
         // They actually do have an active subscription! Update the DB to reflect this.
         const subscription = subscriptions.data[0];
         await updateAuthUser(userId, {
