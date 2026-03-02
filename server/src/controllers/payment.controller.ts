@@ -1,56 +1,34 @@
 import { Request, Response } from "express";
 import Stripe from "stripe";
-import { MongoClient, ObjectId } from "mongodb";
+import User from "../models/user.model";
 import { sendPremiumConfirmationEmail } from "../services/email.service";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2024-09-30.acacia",
+  apiVersion: "2025-02-24.acacia",
 });
 
-// Connect to the same MongoDB that better-auth uses
-const mongoClient = new MongoClient(process.env.MONGODB_URI as string);
-const db = mongoClient.db();
-
-// better-auth session.user uses `id` (string), MongoDB stores `_id` as ObjectId
-const getUserId = (user: any): string => user.id || String(user._id);
-
-// Find user in better-auth's user collection
-// _id is stored as ObjectId, so we must convert the string ID
-async function findAuthUser(userId: string) {
-  try {
-    return await db.collection("user").findOne({ _id: new ObjectId(userId) });
-  } catch (err) {
-    // Fallback: try by email if ObjectId conversion fails
-    console.error("findAuthUser error for userId:", userId, err);
-    return null;
-  }
-}
-
-// Update user in better-auth's user collection
-async function updateAuthUser(userId: string, update: Record<string, any>) {
-  return db.collection("user").updateOne(
-    { _id: new ObjectId(userId) },
-    { $set: update }
-  );
-}
+const getUserId = (user: any): string => String(user._id);
 
 export const createCheckoutSession = async (req: Request, res: Response) => {
   const user = req.user as any;
   const userId = getUserId(user);
 
   try {
-    // Check if user already has a Stripe customer ID
-    const dbUser = await findAuthUser(userId);
-    let customerId = dbUser?.stripeCustomerId;
+    const dbUser = await User.findById(userId);
+    if (!dbUser) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    let customerId = dbUser.stripeCustomerId;
 
     if (!customerId) {
-      // Create a Stripe customer
       const customer = await stripe.customers.create({
         email: user.email,
         metadata: { userId },
       });
       customerId = customer.id;
-      await updateAuthUser(userId, { stripeCustomerId: customerId });
+      dbUser.stripeCustomerId = customerId;
+      await dbUser.save();
     }
 
     const session = await stripe.checkout.sessions.create({
@@ -64,7 +42,7 @@ export const createCheckoutSession = async (req: Request, res: Response) => {
               name: "ContractAI Pro",
               description: "Full access to all AI contract analysis features",
             },
-            unit_amount: 2000, // $20
+            unit_amount: 2000,
             recurring: {
               interval: "month",
             },
@@ -111,17 +89,16 @@ export const handleWebhook = async (req: Request, res: Response) => {
       const subscriptionId = session.subscription as string;
 
       if (userId) {
-        const result = await updateAuthUser(userId, {
+        const result = await User.findByIdAndUpdate(userId, {
           isPremium: true,
           premiumSince: new Date(),
           stripeSubscriptionId: subscriptionId,
           stripeCustomerId: session.customer as string,
         });
-        console.log(`Webhook: User ${userId} upgraded to premium. Matched: ${result.matchedCount}, Modified: ${result.modifiedCount}`);
+        console.log(`Webhook: User ${userId} upgraded to premium. Updated: ${!!result}`);
 
-        // Send confirmation email
         try {
-          const user = await findAuthUser(userId);
+          const user = await User.findById(userId);
           if (user?.email) {
             await sendPremiumConfirmationEmail(user.email, user.name || "User");
           }
@@ -137,17 +114,16 @@ export const handleWebhook = async (req: Request, res: Response) => {
       const subscription = event.data.object as Stripe.Subscription;
       const customerId = subscription.customer as string;
 
-      // Find user by stripeCustomerId
-      const user = await db.collection("user").findOne({ stripeCustomerId: customerId });
+      const user = await User.findOne({ stripeCustomerId: customerId });
 
       if (user) {
         const isActive = subscription.status === "active" || subscription.status === "trialing";
-        const uid = String(user._id);
-        await updateAuthUser(uid, {
-          isPremium: isActive,
-          ...(!isActive && { premiumEndedAt: new Date() }),
-        });
-        console.log(`Webhook: User ${uid} subscription ${subscription.status} → isPremium: ${isActive}`);
+        user.isPremium = isActive;
+        if (!isActive) {
+          user.premiumEndedAt = new Date();
+        }
+        await user.save();
+        console.log(`Webhook: User ${user._id} subscription ${subscription.status} → isPremium: ${isActive}`);
       }
       break;
     }
@@ -155,7 +131,7 @@ export const handleWebhook = async (req: Request, res: Response) => {
     case "invoice.payment_failed": {
       const invoice = event.data.object as Stripe.Invoice;
       const customerId = invoice.customer as string;
-      const user = await db.collection("user").findOne({ stripeCustomerId: customerId });
+      const user = await User.findOne({ stripeCustomerId: customerId });
       if (user) {
         console.log(`Webhook: Payment failed for user ${user._id}`);
       }
@@ -171,11 +147,8 @@ export const getPremiumStatus = async (req: Request, res: Response) => {
   const userId = getUserId(user);
 
   try {
-    const dbUser = await findAuthUser(userId);
-    console.log(`getPremiumStatus: userId=${userId}, found=${!!dbUser}, dbIsPremium=${dbUser?.isPremium}`);
+    const dbUser = await User.findById(userId);
 
-    // If the database says they aren't premium, but they have a stripe customer ID,
-    // let's double check Stripe directly. This fixes issues where webhooks are missed/unconfigured.
     if (dbUser && !dbUser.isPremium && dbUser.stripeCustomerId) {
       const subscriptions = await stripe.subscriptions.list({
         customer: dbUser.stripeCustomerId,
@@ -188,15 +161,11 @@ export const getPremiumStatus = async (req: Request, res: Response) => {
         (subscriptions.data[0].status === "active" ||
           subscriptions.data[0].status === "trialing")
       ) {
-        // They actually do have an active subscription! Update the DB to reflect this.
         const subscription = subscriptions.data[0];
-        await updateAuthUser(userId, {
-          isPremium: true,
-          premiumSince: new Date(subscription.start_date * 1000),
-          stripeSubscriptionId: subscription.id,
-        });
         dbUser.isPremium = true;
         dbUser.premiumSince = new Date(subscription.start_date * 1000);
+        dbUser.stripeSubscriptionId = subscription.id;
+        await dbUser.save();
         console.log(`Dynamically verified active subscription for user ${userId} via Stripe API.`);
       }
     }

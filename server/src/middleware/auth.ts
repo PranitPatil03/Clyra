@@ -1,28 +1,33 @@
 import { NextFunction, Request, Response } from "express";
-import { fromNodeHeaders } from "better-auth/node";
-import { auth } from "../lib/auth";
+import { verifyToken } from "../lib/auth";
+import User from "../models/user.model";
 
 export const isAuthenticated = async (
   req: Request,
   res: Response,
   next: NextFunction
 ) => {
-  console.log("CORS check reached isAuthenticated!");
-  console.log("Headers cookie:", req.headers.cookie);
   try {
-    const session = await auth.api.getSession({
-      headers: fromNodeHeaders(req.headers),
-    });
-
-    if (session) {
-      // @ts-ignore
-      req.user = session.user;
-      return next();
+    const token = req.cookies?.token;
+    if (!token) {
+      return res.status(401).json({ error: "Unauthorized" });
     }
-    console.log("No session found in better-auth. session variable:", session);
+
+    const payload = verifyToken(token);
+    if (!payload) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const user = await User.findById(payload.userId).lean();
+    if (!user) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    // @ts-ignore
+    req.user = user;
+    return next();
   } catch (error) {
     console.error("Auth error:", error);
+    res.status(401).json({ error: "Unauthorized" });
   }
-
-  res.status(401).json({ error: "Unauthorized" });
 };

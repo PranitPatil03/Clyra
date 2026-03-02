@@ -44,7 +44,7 @@ export default function RegisterPage() {
         setIsLoading(true);
 
         try {
-            const response = await api.post("/api/auth/sign-up/email", {
+            const response = await api.post("/auth/register", {
                 name,
                 email,
                 password,
@@ -66,7 +66,7 @@ export default function RegisterPage() {
 
     const handleGoogleLogin = () => {
         setIsGoogleLoading(true);
-        window.location.href = `/auth/google`;
+        window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/auth/google`;
     };
 
     return (

@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import multer from "multer";
 import { IUser } from "../models/user.model";
+import User from "../models/user.model";
 import redis from "../config/redis";
 import {
   analyzeContractWithAI,
@@ -12,18 +13,12 @@ import ContractAnalysisSchema, {
 } from "../models/contract.model";
 import mongoose, { FilterQuery } from "mongoose";
 import { isValidMongoId } from "../utils/mongoUtils";
-import { MongoClient, ObjectId } from "mongodb";
 
-// better-auth session.user uses `id` (string), MongoDB stores `_id` as ObjectId
-const getUserId = (user: any): string => user.id || String(user._id);
-
-// Connect to the same MongoDB that better-auth uses
-const mongoClient = new MongoClient(process.env.MONGODB_URI as string);
-const authDb = mongoClient.db();
+const getUserId = (user: any): string => String(user._id);
 
 async function checkIsPremium(userId: string): Promise<boolean> {
   try {
-    const user = await authDb.collection("user").findOne({ _id: new ObjectId(userId) });
+    const user = await User.findById(userId).lean();
     return user?.isPremium === true;
   } catch {
     return false;
@@ -135,7 +130,7 @@ export const getUserContracts = async (req: Request, res: Response) => {
 };
 
 export const getContractByID = async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = req.params.id as string;
   const user = req.user as IUser;
 
   if (!isValidMongoId(id)) {
@@ -169,7 +164,7 @@ export const getContractByID = async (req: Request, res: Response) => {
 };
 
 export const deleteContract = async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = req.params.id as string;
   const user = req.user as IUser;
 
   if (!isValidMongoId(id)) {

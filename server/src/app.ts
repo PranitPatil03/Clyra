@@ -7,8 +7,6 @@ import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import morgan from "morgan";
 import mongoose from "mongoose";
-import { toNodeHandler } from "better-auth/node";
-import { auth } from "./lib/auth";
 
 // routes
 import authRoute from "./routes/auth";
@@ -33,11 +31,6 @@ app.use(
 
 app.use(cookieParser());
 app.use(morgan("dev"));
-
-// Better Auth handler MUST be before helmet and express.json
-// so it can set its own headers and cookies without interference
-app.all("/api/auth/*", toNodeHandler(auth));
-
 app.use(helmet());
 
 app.post(
@@ -51,7 +44,6 @@ app.use(express.json());
 app.use("/auth", authRoute);
 app.use("/contracts", contractsRoute);
 app.use("/payments", paymentsRoute);
-
 
 app.get("/api/health", (req, res) => {
   res.status(200).json({ message: "OK" });

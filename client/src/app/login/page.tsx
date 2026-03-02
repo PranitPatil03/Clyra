@@ -37,7 +37,7 @@ export default function LoginPage() {
         setIsLoading(true);
 
         try {
-            const response = await api.post("/api/auth/sign-in/email", {
+            const response = await api.post("/auth/login", {
                 email,
                 password,
             });
@@ -59,7 +59,7 @@ export default function LoginPage() {
 
     const handleGoogleLogin = () => {
         setIsGoogleLoading(true);
-        window.location.href = `/auth/google`;
+        window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/auth/google`;
     };
 
     return (
