@@ -93,6 +93,40 @@ router.get("/logout", (req, res) => {
   res.json({ status: "ok" });
 });
 
+// ─── Set session cookie via AJAX (used after Google OAuth redirect) ─────────
+router.post("/set-session", async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token) {
+      return res.status(400).json({ message: "Token is required" });
+    }
+
+    const { verifyToken } = await import("../lib/auth");
+    const payload = verifyToken(token);
+    if (!payload) {
+      return res.status(401).json({ message: "Invalid token" });
+    }
+
+    const user = await User.findById(payload.userId).lean();
+    if (!user) {
+      return res.status(401).json({ message: "User not found" });
+    }
+
+    // Set the cookie via AJAX response (this works cross-origin with withCredentials)
+    res.cookie("token", token, getCookieOptions());
+    res.json({
+      id: user._id,
+      email: user.email,
+      name: user.name,
+      image: user.image,
+      isPremium: user.isPremium,
+    });
+  } catch (err) {
+    console.error("Set session error:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
 // ─── Google OAuth – Step 1: Redirect to Google ──────────────────────────────
 router.get("/google", (req, res) => {
   const clientId = process.env.GOOGLE_CLIENT_ID!;
@@ -170,9 +204,10 @@ router.get("/google/callback", async (req, res) => {
     }
 
     const token = signToken({ userId: String(user._id), email: user.email });
-    res.cookie("token", token, getCookieOptions());
 
-    res.redirect(`${process.env.CLIENT_URL}/dashboard`);
+    // Redirect to client callback page with token in URL.
+    // The client will then set the cookie via AJAX (which works cross-origin).
+    res.redirect(`${process.env.CLIENT_URL}/auth/callback?token=${encodeURIComponent(token)}`);
   } catch (err) {
     console.error("Google callback error:", err);
     res.redirect(`${process.env.CLIENT_URL}/login?error=server`);
