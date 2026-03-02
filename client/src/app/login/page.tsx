@@ -59,7 +59,7 @@ export default function LoginPage() {
 
     const handleGoogleLogin = () => {
         setIsGoogleLoading(true);
-        window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/auth/google`;
+        window.location.href = `/auth/google`;
     };
 
     return (

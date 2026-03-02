@@ -20,7 +20,7 @@ export const auth = betterAuth({
     trustedOrigins: [process.env.CLIENT_URL as string],
     advanced: {
         defaultCookieAttributes: {
-            sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+            sameSite: "lax",
             secure: process.env.NODE_ENV === "production",
         },
         trustedProxyHeaders: true,
