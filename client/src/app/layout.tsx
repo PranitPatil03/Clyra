@@ -36,6 +36,11 @@ export default function RootLayout({
           <ModalProvider>{children}</ModalProvider>
           <Toaster />
         </ReactQueryProvider>
+        <script
+          src="https://omnix-widget.vercel.app/widget.js"
+          data-organization-id="jh7d1vg9e55xtmc7dykg23dn8h827ak2"
+          defer
+        />
       </body>
     </html>
   );
