@@ -2,6 +2,32 @@
 
 An intelligent contract analysis platform built to help users quickly review, comprehend, and analyze lengthy legal documents using advanced Generative AI. 
 
+## ✨ Features
+
+- **PDF contract upload and parsing** with automatic text extraction.
+- **AI contract type detection** before analysis (e.g., lease, NDA, employment).
+- **Tier-based AI analysis**:
+   - Free: risk and opportunity highlights, summary, favorability score.
+   - Pro: deeper risk/opportunity coverage, key clauses, legal compliance, negotiation points, and recommendations.
+- **Overall contract favorability score** to quickly assess contract quality.
+- **Secure authentication** with email/password and Google OAuth.
+- **User dashboard** to view and manage previously analyzed contracts.
+- **Contract detail pages** with structured analysis output and severity/impact indicators.
+- **Report export** from the analysis view for sharing/record keeping.
+- **Stripe subscription flow** for upgrading to Pro.
+- **Redis-backed caching/session support** for faster contract retrieval and temporary file handling.
+
+## 👥 Who Uses Clyra and Why
+
+- **Individuals and freelancers**:
+   - Use Clyra to understand personal contracts quickly without reading dense legal text line by line.
+- **Professionals and founders**:
+   - Use Clyra to review NDAs, vendor agreements, and service contracts faster before signing.
+- **Operations, HR, and procurement teams**:
+   - Use Clyra to identify risky clauses, compare opportunities, and speed up internal contract review.
+- **Legal teams and consultants**:
+   - Use Clyra as a first-pass analysis assistant to surface negotiation points and prioritize deeper manual review.
+
 ## 🚀 Tech Stack
 
 ### Frontend (Client)
